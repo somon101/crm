@@ -17,7 +17,7 @@ COPY package.json ./
 COPY prisma ./prisma
 RUN npm install
 COPY . .
-RUN npm run build
+RUN npm run build && ls -la dist && (find dist -maxdepth 2 || true)
 
 FROM node:20-slim AS runtime
 WORKDIR /app
