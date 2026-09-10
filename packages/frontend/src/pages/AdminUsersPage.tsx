@@ -15,6 +15,7 @@ import { Field } from '../components/ui/Field';
 import { Dialog } from '../components/ui/Dialog';
 import { Badge } from '../components/ui/Badge';
 import { Spinner } from '../components/ui/Spinner';
+import { useAuth } from '../lib/auth-context';
 import type { SafeUser } from '../types';
 
 function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -141,6 +142,11 @@ function UserRow({ user, onResetPassword }: { user: SafeUser; onResetPassword: (
   const blockUser = useBlockUser();
   const activateUser = useActivateUser();
   const updateUser = useUpdateUser();
+  const { user: currentUser } = useAuth();
+  // The server already rejects an admin blocking their own account (see
+  // UsersService.block) — this just makes that limit visible instead of the
+  // button silently failing, so nobody locks themselves out by accident.
+  const isSelf = currentUser?.id === user.id;
 
   return (
     <div
@@ -169,8 +175,14 @@ function UserRow({ user, onResetPassword }: { user: SafeUser; onResetPassword: (
           Сбросить пароль
         </Button>
         {user.isActive ? (
-          <Button size="sm" variant="destructive" onClick={() => blockUser.mutate(user.id)}>
-            Заблокировать
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={isSelf}
+            title={isSelf ? 'Нельзя заблокировать свой собственный аккаунт' : undefined}
+            onClick={() => blockUser.mutate(user.id)}
+          >
+            {isSelf ? 'Это вы' : 'Заблокировать'}
           </Button>
         ) : (
           <Button size="sm" onClick={() => activateUser.mutate(user.id)}>
