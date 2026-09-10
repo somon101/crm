@@ -4,15 +4,25 @@
 # kept losing the compiled dist/ output between build and run phases on Railway.
 FROM node:20-slim AS builder
 WORKDIR /app
+# OpenSSL must be present before `npm install` runs, because our postinstall hook
+# (`prisma generate`) needs it to detect the engine target — Prisma otherwise only
+# warns and guesses, which is fine for generate but risks the query engine failing
+# to load later.
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY package.json ./
+# prisma/schema.prisma must exist before `npm install`, since that's where its
+# postinstall hook (`prisma generate`) looks for it — installing before copying
+# the rest of the source is normally good layer-caching practice, but the schema
+# is the one file that hook needs early.
+COPY prisma ./prisma
 RUN npm install
 COPY . .
-RUN npx prisma generate
 RUN npm run build
 
 FROM node:20-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
